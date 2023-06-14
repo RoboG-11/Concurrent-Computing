@@ -14,12 +14,12 @@
 #include "Individuo.h"
 #include "ProblemaOptim.h"
 #include "Estadisticas.h"
-//#include <mpi.h>
+#include <mpi.h>
 #include <fstream>
 #include <vector>
 #include <random>
 #include <sys/stat.h>
-#include <cstdlib.h>
+#include <cstdlib>
 
 #define RAIZ 0
 
