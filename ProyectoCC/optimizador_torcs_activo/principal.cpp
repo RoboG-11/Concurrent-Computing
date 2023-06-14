@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
   /* Se obtiene el rank del proceso */
   int world_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  myRank=world_rank;
+  int myRank=world_rank;
   /*
    * Para la versión secuencial se usa serverID=0, PERO
    * para la versión concurrente serverID debe ser igual a myRank.

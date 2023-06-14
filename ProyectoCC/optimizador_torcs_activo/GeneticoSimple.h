@@ -42,7 +42,8 @@ class GeneticoSimple {
 public:
    GeneticoSimple(ProblemaOptim*, ParamsGA&,double tiempoMaximo=0);
    ~GeneticoSimple();
-   void optimizar();}
+   void optimizar();
+   
 
 
 private:
@@ -52,7 +53,7 @@ private:
    void unionPoblaciones(Individuo* pop);
    
    void inicalizarPob();
-   void fillarray(int *array);
+   void fillArray(int *array);
    void reporteInicial();
    void evaluarPoblacion(Individuo*);
    double aleatorio();

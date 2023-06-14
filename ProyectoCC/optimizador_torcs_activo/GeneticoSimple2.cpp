@@ -11,7 +11,7 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
-GeneticoSimple::GeneticoSimple(ProblemaOptim *p, ParamsGA &params)
+GeneticoSimple::GeneticoSimple(ProblemaOptim *p, ParamsGA &params, double tiempoMaximo)
 {
    problema = p;
    popSize = params.popSize;
@@ -168,14 +168,15 @@ void GeneticoSimple::inicalizarPob()
 
 /* Acá deben podrían poner sus métodos nuevos para la versión CONCURRENTE/MPI */
 void GeneticoSimple::migracion(Individuo* pop){
+   int i;
    cout << "Este es el metodo de migración";
    std::vector<int> elegidos(nMigrantes);
    obtenElegidos(elegidos,nMigrantes);
-   bufSize=nMigrantes*(problema->numVariables()+1)*sizeof(double)
+   bufSize=nMigrantes*(problema->numVariables()+1)*sizeof(double);
    char* buffer = new char[bufSize];
    int position=0;
-   for (i=0; i < N_MIG; i++) {
-      MPI_Pack(pop[elegidos[i]].x.data(), problema->numVariables, MPI_DOUBLE, buffer, bufSize, 
+   for (i=0; i < nMigrantes; i++) {
+      MPI_Pack(pop[elegidos[i]].x.data(), problema->numVariables(), MPI_DOUBLE, buffer, bufSize, 
             &position, MPI_COMM_WORLD);
       MPI_Pack(&(pop[elegidos[i]].aptitud), 1, MPI_DOUBLE, buffer, bufSize, 
             &position, MPI_COMM_WORLD);
@@ -210,7 +211,7 @@ void GeneticoSimple::obtenElegidos(vector<int>& elegidos, int nMigrantes){
    int i;
    int numAleatorio;
    for(i=0;i<nMigrantes;i++){
-      numAleatorio=rand%decrementarPopSize;
+      numAleatorio=rand()%decrementarPopSize;
       elegidos.push_back(array[numAleatorio]);
       array[numAleatorio]=array[decrementarPopSize-1];
       decrementarPopSize--;
