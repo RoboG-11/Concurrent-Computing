@@ -181,16 +181,19 @@ void GeneticoSimple::migracion(Individuo* pop){
             &position, MPI_COMM_WORLD);
    }
 
+   printf("\nPosicion: %d\n", position);
+
+   /*
    if(world_rank == 0){
-      MPI_Send(&x,1,MPI_INT,1,0,MPI_COMM_WORLD);
-      MPI_Recv(&x,1,MPI_INT,world_size-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE); 
+      MPI_Send(void* buffer, position, MPI_PACKED, myRank+1, 0, MPI_COMM_WORLD);
+      MPI_Recv(void* buffer, position, MPI_PACKED, world_size-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
       printf("HOST recibe: %d\n",x);
    }else{
       MPI_Recv(&x,1,MPI_INT,world_rank-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE); 
       x=x+3;
       MPI_Send(&x,1,MPI_INT,(world_rank+1)%world_size,0,MPI_COMM_WORLD); 
       printf("TRABAJADOR no. %d envía: %d\n",world_rank,x);
-   }
+   }*/
 }
 
 void GeneticoSimple::fillArray(int *array){
