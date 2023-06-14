@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE params SYSTEM "params.dtd">
+
+
+<params name="Quick Race">
+  <section name="Drivers">
+    <attnum name="maximum number" val="40"/>
+    <attnum name="focused idx" val="#ID_SERVER"/>
+    <attstr name="focused module" val="scr_server"/>

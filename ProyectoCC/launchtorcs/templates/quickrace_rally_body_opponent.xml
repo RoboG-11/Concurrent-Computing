@@ -1,0 +1,4 @@
+    <section name="#NAME_SERVER">
+      <attnum name="idx" val="#ID_SERVER"/>
+      <attstr name="module" val="inferno2"/>
+    </section>
