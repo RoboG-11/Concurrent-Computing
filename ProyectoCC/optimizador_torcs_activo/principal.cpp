@@ -46,13 +46,13 @@ int main(int argc, char *argv[])
   // ProblemaOptim* problema = new CannonFun();
 
   /* La descripción de estos valores está en GeneticoSimple.h */
-  ParamsGA pars = {4,   /* popSize  */
-                  2,   /* Gmax */
+  ParamsGA pars = {8,   /* popSize  */
+                  4,   /* Gmax */
                   0.9, /* Pc */
                   0.1, /* Pm */
                   6,   /* precision */
-                  10,  /* nMigrantes*/
-                  16,  /* tamEpoca*/};
+                  4,  /* nMigrantes*/
+                  3,  /* tamEpoca*/};
 
   GeneticoSimple ga(problema, pars);
   ga.optimizar();

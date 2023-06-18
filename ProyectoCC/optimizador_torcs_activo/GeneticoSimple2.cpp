@@ -11,7 +11,9 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
-GeneticoSimple::GeneticoSimple(ProblemaOptim *p, ParamsGA &params, double tiempoMaximo)
+using namespace std;
+
+GeneticoSimple::GeneticoSimple(ProblemaOptim *p, ParamsGA &params)
 {
    problema = p;
    popSize = params.popSize;
@@ -19,14 +21,19 @@ GeneticoSimple::GeneticoSimple(ProblemaOptim *p, ParamsGA &params, double tiempo
    Pc = params.Pc;
    Pm = params.Pm;
    precision = params.precision;
+   tamEpoca = params.tamEpoca;
+   nMigrantes = params.nMigrantes;
 
    random_device rd;
    rng.seed(rd());
-
+   
    oldpop = new Individuo[popSize];
    newpop = new Individuo[popSize];
-   //REVISAR 
-   globalpop = new Individuo[popSize];
+
+   if(myRank == RAIZ){
+      globalpop = new Individuo[popSize * numIslas];
+   }
+   
 
    padres.assign(popSize, 0);
    stats.reset(problema, precision);
@@ -59,6 +66,7 @@ GeneticoSimple::~GeneticoSimple()
 
 void GeneticoSimple::optimizar()
 {
+   cout << "Soy la función optimizar";
    Individuo *temp;
 
    /* Inicializar la población y reportar las estadísticas iniciales */
@@ -86,11 +94,12 @@ void GeneticoSimple::optimizar()
       evaluarPoblacion(newpop);
       elitismo(newpop, gen); // Encontrar el mejor individuo.
 
+      cout << "\n\n\n\n" << "Antes de condición" << endl;
       if(gen%tamEpoca==0){
-
+          cout << "\n\n\n\n" << "En condición" << endl;
+         migracion(newpop);
       }
-
-
+      //migracion(newpop);
       /* Calcular las estadísticas sobre la aptitud en la nueva generación */
       stats.statistics(newpop, popSize);
 
@@ -104,17 +113,7 @@ void GeneticoSimple::optimizar()
       newpop = temp;
    }
 
-   // Para dejar las variables (PESOS) de la población final en este archivo.
-   // ***salidafinal*** debe estar donde corren este programa.
-   ofstream archVariables("./salidafinal/pesos_pob.txt", std::ofstream::out);
-
-   // Para dejar la evaluación (tiempo y distancia restante) de la población.
-   ofstream archEvaluacion("./salidafinal/evals_pob.txt", std::ofstream::out);
-
-   stats.writeVariables(archVariables, oldpop, popSize);
-   stats.writeEvaluation(archEvaluacion, oldpop, popSize);
-   archVariables.close();
-   archEvaluacion.close();
+   unionPoblaciones(oldpop);
 }
 
 /* Evaluación de cada uno de los popsize individuos */
@@ -152,7 +151,6 @@ void GeneticoSimple::evaluarPoblacion(Individuo *pop)
  *  El método insuflar reserva espacio para el vector x, cons, y el cromosoma.
  *
  */
-   //REVISAR globalpop = new Individuo[popSize];
 
 /* Creación aleatoria de la población inicial */
 void GeneticoSimple::inicalizarPob()
@@ -163,14 +161,23 @@ void GeneticoSimple::inicalizarPob()
       newpop[j].insuflar(problema, precision);
    }
 
+   if(myRank == RAIZ)
+   {
+      for (int j = 0; j < (popSize * numIslas); j++)
+      {
+         globalpop[j].insuflar(problema, precision);
+      }
+   }
+
+
    Pm = 1.0 / oldpop[0].chromoSize;
 }
 
 /* Acá deben podrían poner sus métodos nuevos para la versión CONCURRENTE/MPI */
 void GeneticoSimple::migracion(Individuo* pop){
    int i;
-   cout << "Este es el metodo de migración";
-   std::vector<int> elegidos(nMigrantes);
+   cout << "\n\n\n\n" << "Este es el metodo de migración" << endl;
+   vector<int> elegidos(nMigrantes);
    obtenElegidos(elegidos,nMigrantes);
    bufSize=nMigrantes*(problema->numVariables()+1)*sizeof(double);
    char* buffer = new char[bufSize];
@@ -182,19 +189,32 @@ void GeneticoSimple::migracion(Individuo* pop){
             &position, MPI_COMM_WORLD);
    }
 
-   printf("\nPosicion: %d\n", position);
+   cout << "\n\n\n\n" << "\nPosicion: " << position << "\n" << endl;
 
-   /*
-   if(world_rank == 0){
-      MPI_Send(void* buffer, position, MPI_PACKED, myRank+1, 0, MPI_COMM_WORLD);
-      MPI_Recv(void* buffer, position, MPI_PACKED, world_size-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
-      printf("HOST recibe: %d\n",x);
-   }else{
-      MPI_Recv(&x,1,MPI_INT,world_rank-1,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE); 
-      x=x+3;
-      MPI_Send(&x,1,MPI_INT,(world_rank+1)%world_size,0,MPI_COMM_WORLD); 
-      printf("TRABAJADOR no. %d envía: %d\n",world_rank,x);
-   }*/
+   int vecino = myRank + 1;
+   if(vecino >= numIslas)
+   {
+      vecino = 0;
+   }
+   cout << "\n\n\n\n" << "Antes de enviar paquete, soy " << myRank << "\n" << endl;
+   MPI_Send(buffer, position, MPI_PACKED, vecino, 0, MPI_COMM_WORLD);
+   cout << "\n\n\n\n" << "Acabo de enviar paquete, soy " << myRank << "\n" << endl;
+
+   int vecino2 = myRank - 1;
+   if(vecino2 < 0)
+   {
+      vecino = numIslas - 1;
+   }
+   cout << "\n\n\n\n" << "Antes de recibir paquete, soy " << myRank << "\n" << endl;
+   MPI_Recv(buffer, position, MPI_PACKED, vecino2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+   cout << "\n\n\n\n" << "Acabo de recibir paquete, soy " << myRank << "\n" << endl;
+
+   position = 0;
+   for (i = 0; i < nMigrantes; i++) {
+      MPI_Unpack(buffer, bufSize, &position, pop[elegidos[i]].x.data(), problema->numVariables(),MPI_DOUBLE, MPI_COMM_WORLD);
+      MPI_Unpack(buffer, bufSize, &position, &(pop[elegidos[i]].aptitud), 1,MPI_DOUBLE, MPI_COMM_WORLD);
+      pop[elegidos[i]].x2cromosoma(problema); // Obteniene el cromosoma del inmigrante i a partir de x.
+   }
 }
 
 void GeneticoSimple::fillArray(int *array){
@@ -206,19 +226,35 @@ void GeneticoSimple::fillArray(int *array){
 
 void GeneticoSimple::obtenElegidos(vector<int>& elegidos, int nMigrantes){
    int array[popSize];
-   int decrementarPopSize = popSize;
+   int decrementarPopSize = popSize - 1;
    fillArray(array);
    int i;
    int numAleatorio;
    for(i=0;i<nMigrantes;i++){
-      numAleatorio=rand()%decrementarPopSize;
+      /*numAleatorio=rand()%decrementarPopSize;
       elegidos.push_back(array[numAleatorio]);
-      array[numAleatorio]=array[decrementarPopSize-1];
-      decrementarPopSize--;
+      array[numAleatorio]=array[decrementarPopSize];
+      decrementarPopSize--;*/
+      elegidos[i] = i;
    }
 }
 
 void GeneticoSimple::unionPoblaciones(Individuo* pop){
+
+   if(myRank == RAIZ)
+   {
+      // Para dejar las variables (PESOS) de la población final en este archivo.
+      // ***salidafinal*** debe estar donde corren este programa.
+      ofstream archVariables("./salidafinal/pesos_pob.txt", std::ofstream::out);
+
+      // Para dejar la evaluación (tiempo y distancia restante) de la población.
+      ofstream archEvaluacion("./salidafinal/evals_pob.txt", std::ofstream::out);
+
+      stats.writeVariables(archVariables, pop, popSize);
+      stats.writeEvaluation(archEvaluacion, pop, popSize);
+      archVariables.close();
+      archEvaluacion.close();
+   }
 
 }
 

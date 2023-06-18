@@ -40,7 +40,7 @@ typedef struct {
 
 class GeneticoSimple {
 public:
-   GeneticoSimple(ProblemaOptim*, ParamsGA&,double tiempoMaximo=0);
+   GeneticoSimple(ProblemaOptim*, ParamsGA&);
    ~GeneticoSimple();
    void optimizar();
    
