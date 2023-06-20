@@ -190,7 +190,8 @@ void GeneticoSimple::migracion(Individuo* pop){
    }
 
    cout << "\n\n\n\n" << "\nPosicion: " << position << "\n" << endl;
-
+   // Imprimir bufSize
+   //Ver si se calcula bien el vacino
    int vecino = myRank + 1;
    if(vecino >= numIslas)
    {
@@ -205,16 +206,19 @@ void GeneticoSimple::migracion(Individuo* pop){
    {
       vecino = numIslas - 1;
    }
+   //Checar qie position de Recv tiene el mismo valor que el tamaña del buffer
    cout << "\n\n\n\n" << "Antes de recibir paquete, soy " << myRank << "\n" << endl;
    MPI_Recv(buffer, position, MPI_PACKED, vecino2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
    cout << "\n\n\n\n" << "Acabo de recibir paquete, soy " << myRank << "\n" << endl;
 
-   position = 0;
+   position = 0; 
    for (i = 0; i < nMigrantes; i++) {
       MPI_Unpack(buffer, bufSize, &position, pop[elegidos[i]].x.data(), problema->numVariables(),MPI_DOUBLE, MPI_COMM_WORLD);
       MPI_Unpack(buffer, bufSize, &position, &(pop[elegidos[i]].aptitud), 1,MPI_DOUBLE, MPI_COMM_WORLD);
       pop[elegidos[i]].x2cromosoma(problema); // Obteniene el cromosoma del inmigrante i a partir de x.
    }
+
+   //delete buffer;
 }
 
 void GeneticoSimple::fillArray(int *array){
@@ -239,10 +243,18 @@ void GeneticoSimple::obtenElegidos(vector<int>& elegidos, int nMigrantes){
    }
 }
 
+// Hacer lo que está en las diapositivas 
+//a globalpop se accese con globalpop[i] Siempre se ocupa el globalpop.
+//Se puede quitar el parametro y trabajar con globalpop directamnete ya que es global
 void GeneticoSimple::unionPoblaciones(Individuo* pop){
 
    if(myRank == RAIZ)
    {
+      // La isla 0 debe de copiar a global pop
+      // Se hace lo de la foto
+      
+
+      
       // Para dejar las variables (PESOS) de la población final en este archivo.
       // ***salidafinal*** debe estar donde corren este programa.
       ofstream archVariables("./salidafinal/pesos_pob.txt", std::ofstream::out);
@@ -250,10 +262,13 @@ void GeneticoSimple::unionPoblaciones(Individuo* pop){
       // Para dejar la evaluación (tiempo y distancia restante) de la población.
       ofstream archEvaluacion("./salidafinal/evals_pob.txt", std::ofstream::out);
 
+      // Cambiar pop a globalpop y popSize por popSize * numIslas
       stats.writeVariables(archVariables, pop, popSize);
       stats.writeEvaluation(archEvaluacion, pop, popSize);
       archVariables.close();
       archEvaluacion.close();
+   }else{
+      //Casi es lo mismo d emigracion que pack y luego send
    }
 
 }
