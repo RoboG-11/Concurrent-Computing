@@ -185,21 +185,28 @@ void GeneticoSimple::migracion(Individuo* pop){
    for (i=0; i < nMigrantes; i++) {
       MPI_Pack(pop[elegidos[i]].x.data(), problema->numVariables(), MPI_DOUBLE, buffer, bufSize, 
             &position, MPI_COMM_WORLD);
+      cout << "\n\n\n\n" << "\nPosicion bufer antes de envío: " << position << "\n" << endl;
       MPI_Pack(&(pop[elegidos[i]].aptitud), 1, MPI_DOUBLE, buffer, bufSize, 
             &position, MPI_COMM_WORLD);
+      cout << "\n\n\n\n" << "\nPosicion bufer antes de envío aptitud: " << position << "\n" << endl;
    }
 
-   cout << "\n\n\n\n" << "\nPosicion: " << position << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion antes de envío, después de empaquetado: " << position << "\n" << endl;
    // Imprimir bufSize
+   cout << "\n\n\n\n" << "\nbufSize es: " << bufSize << "\n" << endl;
+
    //Ver si se calcula bien el vacino
    int vecino = myRank + 1;
    if(vecino >= numIslas)
    {
       vecino = 0;
    }
+   cout << "\n\n\n\n" << "\nPosicion antes de envío, antes de función: " << position << "\n" << endl;
    cout << "\n\n\n\n" << "Antes de enviar paquete, soy " << myRank << "\n" << endl;
+   cout << "\n\n\n\n" << "Antes de enviar paquete, mi vecino es  " << vecino << "\n" << endl;
    MPI_Send(buffer, position, MPI_PACKED, vecino, 0, MPI_COMM_WORLD);
    cout << "\n\n\n\n" << "Acabo de enviar paquete, soy " << myRank << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion después de envío, antes de función: " << position << "\n" << endl;
 
    int vecino2 = myRank - 1;
    if(vecino2 < 0)
@@ -207,9 +214,11 @@ void GeneticoSimple::migracion(Individuo* pop){
       vecino = numIslas - 1;
    }
    //Checar qie position de Recv tiene el mismo valor que el tamaña del buffer
+   cout << "\n\n\n\n" << "\nPosicion antes de recibir, antes de función: " << position << "\n" << endl;
    cout << "\n\n\n\n" << "Antes de recibir paquete, soy " << myRank << "\n" << endl;
    MPI_Recv(buffer, position, MPI_PACKED, vecino2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
    cout << "\n\n\n\n" << "Acabo de recibir paquete, soy " << myRank << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion después de recibir, antes de función: " << position << "\n" << endl;
 
    position = 0; 
    for (i = 0; i < nMigrantes; i++) {
@@ -218,7 +227,7 @@ void GeneticoSimple::migracion(Individuo* pop){
       pop[elegidos[i]].x2cromosoma(problema); // Obteniene el cromosoma del inmigrante i a partir de x.
    }
 
-   //delete buffer;
+   delete[] buffer;
 }
 
 void GeneticoSimple::fillArray(int *array){
