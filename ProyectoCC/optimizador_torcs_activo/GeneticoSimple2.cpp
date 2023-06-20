@@ -193,7 +193,7 @@ void GeneticoSimple::migracion(Individuo* pop){
 
    cout << "\n\n\n\n" << "\nPosicion antes de envío, después de empaquetado: " << position << "\n" << endl;
    // Imprimir bufSize
-   cout << "\n\n\n\n" << "\nbufSize es: " << bufSize << "\n" << endl;
+   cout << "\n\n\n\n" << "\nbufSize es: " << bufSize << "\n" << "y position es :" << position << endl;
 
    //Ver si se calcula bien el vacino
    int vecino = myRank + 1;
@@ -211,7 +211,7 @@ void GeneticoSimple::migracion(Individuo* pop){
    int vecino2 = myRank - 1;
    if(vecino2 < 0)
    {
-      vecino = numIslas - 1;
+      vecino2 = numIslas - 1;
    }
    //Checar qie position de Recv tiene el mismo valor que el tamaña del buffer
    cout << "\n\n\n\n" << "\nPosicion antes de recibir, antes de función: " << position << "\n" << endl;
@@ -256,11 +256,34 @@ void GeneticoSimple::obtenElegidos(vector<int>& elegidos, int nMigrantes){
 //a globalpop se accese con globalpop[i] Siempre se ocupa el globalpop.
 //Se puede quitar el parametro y trabajar con globalpop directamnete ya que es global
 void GeneticoSimple::unionPoblaciones(Individuo* pop){
-
+   //Falta ver cómo calcular tamaño de este buffer
+   bufSize = 0;
+   char* buffer = new char[bufSize];
+   int final = 0;
    if(myRank == RAIZ)
    {
       // La isla 0 debe de copiar a global pop
+      for(int i = 0; i < popSize; i++)
+      {
+         globalpop[i] = oldpop[i];
+         final++;
+      }
       // Se hace lo de la foto
+      for(int j = 1; j < numIslas; j++)
+      {
+         //qué buffer y qué position?
+         MPI_Recv(buffer, bufSize, MPI_PACKED, j, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+         //desempacar
+         for(int k = 0; k < popSize; k++)
+         {
+            //faltan más unpack?
+           //MPI_Unpack(buffer, bufSize, &position, globalpop[elegidos[final]].x.data(), problema->numVariables(),MPI_DOUBLE, MPI_COMM_WORLD);
+            //hacer copia
+
+         }
+         final++;
+      }
+
       
 
       
@@ -272,12 +295,29 @@ void GeneticoSimple::unionPoblaciones(Individuo* pop){
       ofstream archEvaluacion("./salidafinal/evals_pob.txt", std::ofstream::out);
 
       // Cambiar pop a globalpop y popSize por popSize * numIslas
-      stats.writeVariables(archVariables, pop, popSize);
-      stats.writeEvaluation(archEvaluacion, pop, popSize);
+      stats.writeVariables(archVariables, globalpop, (popSize * numIslas));
+      stats.writeEvaluation(archEvaluacion, globalpop, (popSize * numIslas));
       archVariables.close();
       archEvaluacion.close();
-   }else{
+   }
+   
+   else{
       //Casi es lo mismo d emigracion que pack y luego send
+      int i = 0;
+      int position = 0;
+      //variable de control está correcta? o debería ser popsize
+      for (i=0; i < nMigrantes; i++){
+         //Enviar esto y aparte x?
+         MPI_Pack(pop[elegidos[i]].x.data(), problema->numVariables(), MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
+         cout << "\n\n\n\n" << "\nPosicion bufer antes de envío: " << position << "\n" << endl;
+         //Empaquetando evaluación de individuo
+         MPI_Pack(&(pop[elegidos[i]].eval), 1, MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
+         //Empaquetando restricción
+         MPI_Pack(&(pop[elegidos[i]].cons[0]), 1, MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
+         cout << "\n\n\n\n" << "\nPosicion bufer antes de envío aptitud: " << position << "\n" << endl;
+      }
+      //Se envía al proceso 0
+      MPI_Send(buffer, position, MPI_PACKED, 0, 0, MPI_COMM_WORLD);
    }
 
 }
