@@ -10,6 +10,7 @@
 #include "GeneticoSimple.h"
 #include <fmt/core.h>
 #include <fmt/ranges.h>
+#include <mpi.h>
 
 using namespace std;
 
@@ -23,6 +24,9 @@ GeneticoSimple::GeneticoSimple(ProblemaOptim *p, ParamsGA &params)
    precision = params.precision;
    tamEpoca = params.tamEpoca;
    nMigrantes = params.nMigrantes;
+   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+   MPI_Comm_size(MPI_COMM_WORLD, &numIslas);
+
 
    random_device rd;
    rng.seed(rd());
@@ -66,6 +70,7 @@ GeneticoSimple::~GeneticoSimple()
 
 void GeneticoSimple::optimizar()
 {
+   cout << "\n\n\n\n" << "Este es el proceso número: " << myRank << endl;
    cout << "Soy la función optimizar";
    Individuo *temp;
 
@@ -99,7 +104,6 @@ void GeneticoSimple::optimizar()
           cout << "\n\n\n\n" << "En condición" << endl;
          migracion(newpop);
       }
-      //migracion(newpop);
       /* Calcular las estadísticas sobre la aptitud en la nueva generación */
       stats.statistics(newpop, popSize);
 
@@ -112,7 +116,7 @@ void GeneticoSimple::optimizar()
       oldpop = newpop;
       newpop = temp;
    }
-
+   cout << "\n\n\n\n" << "Voy a hacer unión de poblaciones y soy el " << myRank << endl;
    unionPoblaciones(oldpop);
 }
 
@@ -201,12 +205,12 @@ void GeneticoSimple::migracion(Individuo* pop){
    {
       vecino = 0;
    }
-   cout << "\n\n\n\n" << "\nPosicion antes de envío, antes de función: " << position << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion antes de envío, antes de función: " << position << "en proceso" << myRank << "\n" << endl;
    cout << "\n\n\n\n" << "Antes de enviar paquete, soy " << myRank << "\n" << endl;
    cout << "\n\n\n\n" << "Antes de enviar paquete, mi vecino es  " << vecino << "\n" << endl;
    MPI_Send(buffer, position, MPI_PACKED, vecino, 0, MPI_COMM_WORLD);
    cout << "\n\n\n\n" << "Acabo de enviar paquete, soy " << myRank << "\n" << endl;
-   cout << "\n\n\n\n" << "\nPosicion después de envío, antes de función: " << position << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion después de envío, antes de función: " << position << "en proceso" << myRank << "\n" << endl;
 
    int vecino2 = myRank - 1;
    if(vecino2 < 0)
@@ -214,11 +218,11 @@ void GeneticoSimple::migracion(Individuo* pop){
       vecino2 = numIslas - 1;
    }
    //Checar qie position de Recv tiene el mismo valor que el tamaña del buffer
-   cout << "\n\n\n\n" << "\nPosicion antes de recibir, antes de función: " << position << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion antes de recibir, antes de función: " << position << "en proceso" << myRank << "\n" << endl;
    cout << "\n\n\n\n" << "Antes de recibir paquete, soy " << myRank << "\n" << endl;
    MPI_Recv(buffer, position, MPI_PACKED, vecino2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
    cout << "\n\n\n\n" << "Acabo de recibir paquete, soy " << myRank << "\n" << endl;
-   cout << "\n\n\n\n" << "\nPosicion después de recibir, antes de función: " << position << "\n" << endl;
+   cout << "\n\n\n\n" << "\nPosicion después de recibir, antes de función: " << position <<  "en proceso" << myRank << "\n" << endl;
 
    position = 0; 
    for (i = 0; i < nMigrantes; i++) {
@@ -244,11 +248,11 @@ void GeneticoSimple::obtenElegidos(vector<int>& elegidos, int nMigrantes){
    int i;
    int numAleatorio;
    for(i=0;i<nMigrantes;i++){
-      /*numAleatorio=rand()%decrementarPopSize;
-      elegidos.push_back(array[numAleatorio]);
+      numAleatorio=rand()%decrementarPopSize;
+      //elegidos.push_back(array[numAleatorio]);
+      elegidos[i] = array[numAleatorio];
       array[numAleatorio]=array[decrementarPopSize];
-      decrementarPopSize--;*/
-      elegidos[i] = i;
+      decrementarPopSize--;
    }
 }
 
@@ -257,46 +261,60 @@ void GeneticoSimple::obtenElegidos(vector<int>& elegidos, int nMigrantes){
 //Se puede quitar el parametro y trabajar con globalpop directamnete ya que es global
 void GeneticoSimple::unionPoblaciones(Individuo* pop){
    //Falta ver cómo calcular tamaño de este buffer
-   bufSize = 0;
+   bufSize=popSize*(problema->numVariables()+2)*sizeof(double);
    char* buffer = new char[bufSize];
-   int final = 0;
+   int final;
    if(myRank == RAIZ)
    {
       // La isla 0 debe de copiar a global pop
-      for(int i = 0; i < popSize; i++)
+      for(final = 0; final < popSize; final++)
       {
-         globalpop[i] = oldpop[i];
-         final++;
+         globalpop[final] = oldpop[final];
       }
+      cout << "Se copió oldpop a globalpop" << endl;
       // Se hace lo de la foto
+      int position;
       for(int j = 1; j < numIslas; j++)
       {
          //qué buffer y qué position?
-         MPI_Recv(buffer, bufSize, MPI_PACKED, j, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+         cout << "\n\n\n\n" << "Soy raíz y estoy recibiendo datos de isla " << j << endl;
+         MPI_Recv(buffer, bufSize, MPI_PACKED, j, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+         cout << "\n\n\n\n" << "Soy raíz y recibí datos de " << numIslas << endl;
          //desempacar
+         position = 0;
          for(int k = 0; k < popSize; k++)
          {
             //faltan más unpack?
-           //MPI_Unpack(buffer, bufSize, &position, globalpop[elegidos[final]].x.data(), problema->numVariables(),MPI_DOUBLE, MPI_COMM_WORLD);
-            //hacer copia
-
+            cout << "\n\n\n\n" << "Soy raiz y voy a desempacar datos de isla" << j << endl;
+            MPI_Unpack(buffer, bufSize, &position, globalpop[final].x.data(), problema->numVariables(),MPI_DOUBLE, MPI_COMM_WORLD);
+            cout << "\n\n\n\n" << "Soy raiz y desempaqué vector de isla" << j << endl;
+            cout << "\n\n\n\n" << "Soy raiz y voy a desempacar eval de isla" << j << endl;
+            MPI_Unpack(buffer, bufSize, &position, &(globalpop[final].eval), 1,MPI_DOUBLE, MPI_COMM_WORLD);
+            cout << "\n\n\n\n" << "Soy raiz y desempaqué eval de isla" << j << endl;
+            cout << "\n\n\n\n" << "Soy raiz y voy a desempacar cons de isla" << j << endl;
+            MPI_Unpack(buffer, bufSize, &position, &(globalpop[final].cons[0]), 1,MPI_DOUBLE, MPI_COMM_WORLD);
+            cout << "\n\n\n\n" << "Soy raiz y desempaqué cons de isla" << j << endl;
+            //hacer copiainal
+            final++;
          }
-         final++;
       }
-
-      
-
       
       // Para dejar las variables (PESOS) de la población final en este archivo.
       // ***salidafinal*** debe estar donde corren este programa.
+      cout << "\n\n\n\n" << "Inicio de escritura de archivos pesos_pob.txt" << endl;
       ofstream archVariables("./salidafinal/pesos_pob.txt", std::ofstream::out);
+      cout << "Fin de escritura de archivos pesos_pob.txt" << endl;
 
       // Para dejar la evaluación (tiempo y distancia restante) de la población.
+      cout << "\n\n\n\n" << "Inicio de escritura de archivos evals_pob.txt" << endl;
       ofstream archEvaluacion("./salidafinal/evals_pob.txt", std::ofstream::out);
+      cout << "\n\n\n\n" << "Fin de escritura de archivos evals_pob.txt" << endl;
 
       // Cambiar pop a globalpop y popSize por popSize * numIslas
+      cout << "\n\n\n\n" << "Inicio de escritura de variables" << endl;
       stats.writeVariables(archVariables, globalpop, (popSize * numIslas));
       stats.writeEvaluation(archEvaluacion, globalpop, (popSize * numIslas));
+      cout << "\n\n\n\n" << "Fin de escritura de variables" << endl;
       archVariables.close();
       archEvaluacion.close();
    }
@@ -306,20 +324,21 @@ void GeneticoSimple::unionPoblaciones(Individuo* pop){
       int i = 0;
       int position = 0;
       //variable de control está correcta? o debería ser popsize
-      for (i=0; i < nMigrantes; i++){
+      cout << "\n\n\n\n" << "Va a empacar proceso " << myRank << endl;
+      for (i=0; i < popSize; i++){
          //Enviar esto y aparte x?
-         MPI_Pack(pop[elegidos[i]].x.data(), problema->numVariables(), MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
+         MPI_Pack(oldpop[i].x.data(), problema->numVariables(), MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
          cout << "\n\n\n\n" << "\nPosicion bufer antes de envío: " << position << "\n" << endl;
          //Empaquetando evaluación de individuo
-         MPI_Pack(&(pop[elegidos[i]].eval), 1, MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
+         MPI_Pack(&(oldpop[i].eval), 1, MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
          //Empaquetando restricción
-         MPI_Pack(&(pop[elegidos[i]].cons[0]), 1, MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
-         cout << "\n\n\n\n" << "\nPosicion bufer antes de envío aptitud: " << position << "\n" << endl;
+         MPI_Pack(&(oldpop[i].cons[0]), 1, MPI_DOUBLE, buffer, bufSize, &position, MPI_COMM_WORLD);
       }
+      cout << "\n\n\n\n" << "Terminó de empacar proceso " << myRank << endl;
       //Se envía al proceso 0
-      MPI_Send(buffer, position, MPI_PACKED, 0, 0, MPI_COMM_WORLD);
+      cout << "Voy a enviar en migración y soy el proceso " << myRank << endl;
+      MPI_Send(buffer, position, MPI_PACKED, RAIZ, 0, MPI_COMM_WORLD);
    }
-
 }
 
 
